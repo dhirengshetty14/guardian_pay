@@ -225,6 +225,34 @@ services:
       - "5173:5173"
     profiles: ["core", "full"]
 
+  checkout-demo:
+    build:
+      context: ./demo/checkout
+    container_name: guardianpay-checkout-demo
+    ports:
+      - "8787:80"
+    profiles: ["core", "full"]
+
+  replay-cli:
+    build:
+      context: .
+      dockerfile: rust/Dockerfile.service
+      args:
+        BIN_NAME: replay-cli
+    container_name: guardianpay-replay-cli
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      TOPIC_TX_RAW: tx.raw
+      TOPIC_TX_FEATURE: tx.feature
+      TOPIC_TX_GRAPH: tx.graph
+      TOPIC_TX_DECISION: tx.decision
+      MODEL_VERSION: model-v1
+      REPLAY_MAX_MESSAGES: 200000
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    profiles: ["tools"]
+
   flink-jobmanager:
     image: flink:2.1.1-scala_2.12-java17
     container_name: guardianpay-flink-jobmanager

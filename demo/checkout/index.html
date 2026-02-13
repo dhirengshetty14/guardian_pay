@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GuardianPay Checkout Demo</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "DM Sans", "Segoe UI", sans-serif;
+        background: linear-gradient(145deg, #eef4ff, #f8fffb);
+        color: #112244;
+      }
+      .page {
+        max-width: 980px;
+        margin: 40px auto;
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 20px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #d9e5fa;
+        box-shadow: 0 14px 40px rgba(22, 42, 82, 0.1);
+        padding: 20px;
+      }
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px dashed #d7e2f4;
+      }
+      .total {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 700;
+        margin-top: 16px;
+        font-size: 1.1rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 10px;
+        font-size: 0.92rem;
+      }
+      input, select {
+        width: 100%;
+        border: 1px solid #bfd3f6;
+        border-radius: 10px;
+        padding: 10px;
+        background: #f7fbff;
+      }
+      .pay {
+        margin-top: 16px;
+        border: 0;
+        width: 100%;
+        border-radius: 12px;
+        padding: 12px;
+        font-weight: 700;
+        color: white;
+        background: linear-gradient(90deg, #155ee7, #14b38f);
+      }
+      .hint {
+        margin-top: 14px;
+        font-size: 0.88rem;
+        color: #3a5178;
+      }
+      @media (max-width: 860px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="card">
+        <h1>Checkout</h1>
+        <div class="item"><span>Wireless Earbuds</span><span>$59.00</span></div>
+        <div class="item"><span>Phone Case</span><span>$18.00</span></div>
+        <div class="item"><span>Shipping</span><span>$7.99</span></div>
+        <div class="total"><span>Total</span><span id="total">$84.99</span></div>
+      </section>
+      <section class="card">
+        <h2>Payment</h2>
+        <label>
+          Name
+          <input name="name" value="Alex Morgan" />
+        </label>
+        <label>
+          Card Number
+          <input name="card" value="4111 1111 1111 1111" />
+        </label>
+        <label>
+          Amount
+          <input type="number" name="amount" value="84.99" min="1" step="0.01" />
+        </label>
+        <label>
+          Country
+          <select name="country">
+            <option>US</option>
+            <option>GB</option>
+            <option>CA</option>
+            <option>DE</option>
+            <option>SG</option>
+          </select>
+        </label>
+        <button class="pay">Pay Now</button>
+        <div class="hint">
+          Use the GuardianPay browser extension overlay to score this checkout.
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
