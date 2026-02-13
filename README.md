@@ -60,6 +60,7 @@ guardian_pay/
 - `POST /v1/simulations/run`
 - `GET /v1/transactions/{tx_id}/decision`
 - `GET /v1/rings/{ring_id}`
+- `GET /v1/rings/{ring_id}/graph`
 - `POST /v1/replay/run`
 - `GET /v1/stream/alerts` (WebSocket)
 - `GET /v1/health`
@@ -97,6 +98,12 @@ Run replay check:
 
 ```bash
 docker compose --profile tools run --rm replay-cli
+```
+
+Run synthetic quality evaluation (precision/recall from labeled decisions):
+
+```powershell
+./scripts/run-quality.ps1
 ```
 
 Run smoke test:

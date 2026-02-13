@@ -57,15 +57,19 @@ async fn main() -> anyhow::Result<()> {
         env::var("TOPIC_TX_DECISION").unwrap_or_else(|_| "tx.decision".to_string());
     let topic_tx_deadletter =
         env::var("TOPIC_TX_DEADLETTER").unwrap_or_else(|_| "tx.deadletter".to_string());
+    let kafka_group_id =
+        env::var("KAFKA_GROUP_ID").unwrap_or_else(|_| "risk-decider-v2".to_string());
+    let kafka_auto_offset_reset =
+        env::var("KAFKA_AUTO_OFFSET_RESET").unwrap_or_else(|_| "latest".to_string());
     let opa_url = env::var("OPA_URL")
         .unwrap_or_else(|_| "http://localhost:8181/v1/data/guardianpay/decision".to_string());
     let model_version = env::var("MODEL_VERSION").unwrap_or_else(|_| "model-v1".to_string());
 
     let consumer: StreamConsumer = ClientConfig::new()
-        .set("group.id", "risk-decider-v1")
+        .set("group.id", &kafka_group_id)
         .set("bootstrap.servers", &kafka_brokers)
         .set("enable.auto.commit", "true")
-        .set("auto.offset.reset", "earliest")
+        .set("auto.offset.reset", &kafka_auto_offset_reset)
         .create()
         .context("failed to create risk-decider consumer")?;
     consumer

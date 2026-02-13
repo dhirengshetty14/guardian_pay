@@ -32,12 +32,19 @@ class RunningStats:
 
 
 class FeatureStream:
-    def __init__(self, brokers: str, topic_raw: str, topic_feature: str) -> None:
+    def __init__(
+        self,
+        brokers: str,
+        topic_raw: str,
+        topic_feature: str,
+        group_id: str,
+        auto_offset_reset: str,
+    ) -> None:
         self.consumer = Consumer(
             {
                 "bootstrap.servers": brokers,
-                "group.id": "feature-stream-v1",
-                "auto.offset.reset": "earliest",
+                "group.id": group_id,
+                "auto.offset.reset": auto_offset_reset,
             }
         )
         self.consumer.subscribe([topic_raw])
@@ -123,7 +130,15 @@ def main() -> None:
     brokers = os.getenv("KAFKA_BROKERS", "localhost:9092")
     topic_raw = os.getenv("TOPIC_TX_RAW", "tx.raw")
     topic_feature = os.getenv("TOPIC_TX_FEATURE", "tx.feature")
-    stream = FeatureStream(brokers, topic_raw, topic_feature)
+    group_id = os.getenv("KAFKA_GROUP_ID", "feature-stream-v2")
+    auto_offset_reset = os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest")
+    stream = FeatureStream(
+        brokers,
+        topic_raw,
+        topic_feature,
+        group_id,
+        auto_offset_reset,
+    )
     stream.run()
 
 

@@ -1,4 +1,5 @@
 package guardianpay
+import rego.v1
 
 default decision := {
   "decision": "APPROVE",
@@ -29,10 +30,13 @@ decision := {
 }
 
 determine_verdict(score) := "DECLINE" if score >= 0.75
-determine_verdict(score) := "REVIEW" if score >= 0.45 and score < 0.75
+determine_verdict(score) := "REVIEW" if {
+  score >= 0.45
+  score < 0.75
+}
 determine_verdict(score) := "APPROVE" if score < 0.45
 
-build_reasons(feature, graph, velocity_component, anomaly_component) := reasons {
+build_reasons(feature, graph, velocity_component, anomaly_component) := reasons if {
   reasons := [
     {
       "code": "VELOCITY_SPIKE",
@@ -61,12 +65,12 @@ build_reasons(feature, graph, velocity_component, anomaly_component) := reasons 
   ]
 }
 
-clamp(value) := out {
+clamp(value) := out if {
   value < 0
   out := 0
-} else := out {
+} else := out if {
   value > 1
   out := 1
-} else := out {
+} else := out if {
   out := value
 }

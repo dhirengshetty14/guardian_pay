@@ -59,6 +59,10 @@ async fn main() -> anyhow::Result<()> {
     let topic_tx_decision =
         env::var("TOPIC_TX_DECISION").unwrap_or_else(|_| "tx.decision".to_string());
     let topic_tx_graph = env::var("TOPIC_TX_GRAPH").unwrap_or_else(|_| "tx.graph".to_string());
+    let kafka_group_id =
+        env::var("KAFKA_GROUP_ID").unwrap_or_else(|_| "analytics-writer-v2".to_string());
+    let kafka_auto_offset_reset =
+        env::var("KAFKA_AUTO_OFFSET_RESET").unwrap_or_else(|_| "latest".to_string());
     let clickhouse_url =
         env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
     let db_name = env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "guardianpay".to_string());
@@ -87,6 +91,8 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::spawn(run_kafka_ingest(
         kafka_brokers.clone(),
+        kafka_group_id,
+        kafka_auto_offset_reset,
         topic_tx_decision.clone(),
         topic_tx_graph.clone(),
         decision_tx,
@@ -176,16 +182,18 @@ async fn ensure_schema(client: &ClickHouseClient, db_name: &str) -> anyhow::Resu
 
 async fn run_kafka_ingest(
     kafka_brokers: String,
+    kafka_group_id: String,
+    kafka_auto_offset_reset: String,
     topic_tx_decision: String,
     topic_tx_graph: String,
     decision_tx: mpsc::Sender<DecisionTraceV1>,
     ring_tx: mpsc::Sender<GraphSignalV1>,
 ) {
     let consumer: StreamConsumer = match ClientConfig::new()
-        .set("group.id", "analytics-writer-v1")
+        .set("group.id", &kafka_group_id)
         .set("bootstrap.servers", &kafka_brokers)
         .set("enable.auto.commit", "true")
-        .set("auto.offset.reset", "earliest")
+        .set("auto.offset.reset", &kafka_auto_offset_reset)
         .create()
     {
         Ok(c) => c,

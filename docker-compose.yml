@@ -121,6 +121,8 @@ services:
       KAFKA_BROKERS: kafka:9092
       TOPIC_TX_RAW: tx.raw
       TOPIC_TX_FEATURE: tx.feature
+      KAFKA_GROUP_ID: feature-stream-v2
+      KAFKA_AUTO_OFFSET_RESET: latest
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -137,14 +139,19 @@ services:
       KAFKA_BROKERS: kafka:9092
       TOPIC_TX_RAW: tx.raw
       TOPIC_TX_GRAPH: tx.graph
+      KAFKA_GROUP_ID: graph-service-v2
+      KAFKA_AUTO_OFFSET_RESET: latest
       NEO4J_URI: neo4j://neo4j:7687
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: guardianpay
+      GRAPH_BIND: 0.0.0.0:8084
     depends_on:
       kafka-init:
         condition: service_completed_successfully
       neo4j:
         condition: service_healthy
+    ports:
+      - "8084:8084"
     profiles: ["core", "full"]
 
   risk-decider:
@@ -156,6 +163,8 @@ services:
     container_name: guardianpay-risk-decider
     environment:
       KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: risk-decider-v2
+      KAFKA_AUTO_OFFSET_RESET: latest
       TOPIC_TX_RAW: tx.raw
       TOPIC_TX_FEATURE: tx.feature
       TOPIC_TX_GRAPH: tx.graph
@@ -179,6 +188,8 @@ services:
     container_name: guardianpay-analytics-writer
     environment:
       KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: analytics-writer-v2
+      KAFKA_AUTO_OFFSET_RESET: latest
       TOPIC_TX_DECISION: tx.decision
       TOPIC_TX_GRAPH: tx.graph
       CLICKHOUSE_URL: http://clickhouse:8123
@@ -208,6 +219,7 @@ services:
       TOPIC_TX_DECISION: tx.decision
       SIMULATOR_URL: http://simulator:8090
       ANALYTICS_URL: http://analytics-writer:8083
+      GRAPH_API_URL: http://graph-service:8084
       GATEWAY_BIND: 0.0.0.0:8080
     depends_on:
       kafka-init:
@@ -215,6 +227,8 @@ services:
       simulator:
         condition: service_started
       analytics-writer:
+        condition: service_started
+      graph-service:
         condition: service_started
     ports:
       - "8080:8080"
