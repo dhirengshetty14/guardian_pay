@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TransactionEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx_id",
+    "event_time",
+    "account_id",
+    "card_id",
+    "merchant_id",
+    "amount",
+    "currency",
+    "country",
+    "device_id",
+    "ip",
+    "mcc",
+    "channel",
+    "is_card_present",
+    "user_agent"
+  ],
+  "properties": {
+    "tx_id": { "type": "string", "minLength": 1 },
+    "event_time": { "type": "string", "format": "date-time" },
+    "account_id": { "type": "string" },
+    "card_id": { "type": "string" },
+    "merchant_id": { "type": "string" },
+    "amount": { "type": "number" },
+    "currency": { "type": "string", "minLength": 3, "maxLength": 3 },
+    "country": { "type": "string", "minLength": 2, "maxLength": 2 },
+    "device_id": { "type": "string" },
+    "ip": { "type": "string" },
+    "mcc": { "type": "string" },
+    "channel": { "type": "string" },
+    "is_card_present": { "type": "boolean" },
+    "user_agent": { "type": "string" },
+    "label": { "type": ["string", "null"] }
+  }
+}

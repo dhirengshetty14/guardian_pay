@@ -4,11 +4,11 @@ use anyhow::Context;
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::Response,
     routing::{get, post},
     Json, Router,
 };
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::{Message as WsMessage, WebSocket};
 use chrono::Utc;
 use common_models::{DecisionTraceV1, TransactionEventV1};
 use futures::StreamExt;
@@ -17,7 +17,7 @@ use rdkafka::{
     consumer::{Consumer, StreamConsumer},
     producer::{FutureProducer, FutureRecord},
     util::Timeout,
-    Message,
+    Message as KafkaMessage,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -299,7 +299,7 @@ async fn ws_handler(mut socket: WebSocket, mut rx: broadcast::Receiver<DecisionT
                 continue;
             }
         };
-        if socket.send(Message::Text(payload)).await.is_err() {
+        if socket.send(WsMessage::Text(payload)).await.is_err() {
             break;
         }
     }

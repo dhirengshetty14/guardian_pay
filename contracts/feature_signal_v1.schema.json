@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FeatureSignalV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx_id",
+    "velocity_1m_card",
+    "velocity_5m_device",
+    "velocity_15m_ip",
+    "amount_zscore_1h_account",
+    "anomaly_score",
+    "feature_version"
+  ],
+  "properties": {
+    "tx_id": { "type": "string", "minLength": 1 },
+    "velocity_1m_card": { "type": "number" },
+    "velocity_5m_device": { "type": "number" },
+    "velocity_15m_ip": { "type": "number" },
+    "amount_zscore_1h_account": { "type": "number" },
+    "anomaly_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "feature_version": { "type": "string" }
+  }
+}

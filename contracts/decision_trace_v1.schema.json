@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DecisionTraceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx_id",
+    "decision",
+    "final_score",
+    "reasons",
+    "policy_version",
+    "model_version",
+    "replay_hash",
+    "latency_ms",
+    "event_time"
+  ],
+  "properties": {
+    "tx_id": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "string",
+      "enum": ["APPROVE", "REVIEW", "DECLINE"]
+    },
+    "final_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "policy_version": { "type": "string" },
+    "model_version": { "type": "string" },
+    "replay_hash": { "type": "string", "minLength": 20 },
+    "latency_ms": { "type": "integer", "minimum": 0 },
+    "event_time": { "type": "string", "format": "date-time" },
+    "label": { "type": ["string", "null"] },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "source",
+          "value",
+          "threshold",
+          "contribution",
+          "evidence_ref"
+        ],
+        "properties": {
+          "code": { "type": "string" },
+          "source": { "type": "string" },
+          "value": { "type": "number" },
+          "threshold": { "type": "number" },
+          "contribution": { "type": "number" },
+          "evidence_ref": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -40,6 +40,7 @@ guardian_pay/
     flink-feature-job/
   dashboard/
   extension/
+  contracts/
   scripts/
   demo/checkout/
 ```
@@ -82,7 +83,7 @@ Open:
 - Dashboard: `http://localhost:5173`
 - Gateway API: `http://localhost:8080/v1/health`
 - Neo4j Browser: `http://localhost:7474` (`neo4j` / `guardianpay`)
-- ClickHouse HTTP: `http://localhost:8123`
+- ClickHouse HTTP: `http://localhost:8123` (`guardianpay` / `guardianpay`)
 
 Trigger scenario:
 
@@ -96,6 +97,12 @@ Run replay check:
 
 ```bash
 docker compose --profile tools run --rm replay-cli
+```
+
+Run smoke test:
+
+```powershell
+./scripts/smoke-test.ps1
 ```
 
 ## Demo Flow

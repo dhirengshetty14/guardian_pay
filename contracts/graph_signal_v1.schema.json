@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GraphSignalV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx_id",
+    "ring_id",
+    "component_size",
+    "shared_device_fanout",
+    "node_centrality",
+    "graph_score",
+    "graph_version"
+  ],
+  "properties": {
+    "tx_id": { "type": "string", "minLength": 1 },
+    "ring_id": { "type": "string" },
+    "component_size": { "type": "integer", "minimum": 0 },
+    "shared_device_fanout": { "type": "integer", "minimum": 0 },
+    "node_centrality": { "type": "number", "minimum": 0, "maximum": 1 },
+    "graph_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "graph_version": { "type": "string" }
+  }
+}

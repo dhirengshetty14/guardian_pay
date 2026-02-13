@@ -7,7 +7,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::{Json, Router};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use clickhouse::{Client as ClickHouseClient, Row};
 use common_models::{DecisionTraceV1, GraphSignalV1};
 use futures::StreamExt;
@@ -36,8 +36,8 @@ struct DecisionRow {
     latency_ms: u64,
     reasons_json: String,
     label: String,
-    event_time: DateTime<Utc>,
-    inserted_at: DateTime<Utc>,
+    event_time: String,
+    inserted_at: String,
 }
 
 #[derive(Debug, Clone, Row, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ struct RingRow {
     component_size: u32,
     avg_graph_score: f64,
     shared_device_fanout: u32,
-    updated_at: DateTime<Utc>,
+    updated_at: String,
 }
 
 #[tokio::main]
@@ -62,16 +62,20 @@ async fn main() -> anyhow::Result<()> {
     let clickhouse_url =
         env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
     let db_name = env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "guardianpay".to_string());
+    let clickhouse_user = env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".to_string());
+    let clickhouse_password = env::var("CLICKHOUSE_PASSWORD").unwrap_or_default();
     let bind_addr: SocketAddr = env::var("ANALYTICS_BIND")
         .unwrap_or_else(|_| "0.0.0.0:8083".to_string())
         .parse()
         .context("invalid ANALYTICS_BIND")?;
 
-    let clickhouse = ClickHouseClient::default()
+    let base_clickhouse = ClickHouseClient::default()
         .with_url(clickhouse_url)
-        .with_database(db_name.clone());
+        .with_user(clickhouse_user)
+        .with_password(clickhouse_password);
 
-    ensure_schema(&clickhouse, &db_name).await?;
+    ensure_schema(&base_clickhouse, &db_name).await?;
+    let clickhouse = base_clickhouse.with_database(db_name.clone());
 
     let app_state = Arc::new(AppState {
         clickhouse: clickhouse.clone(),
@@ -128,9 +132,9 @@ async fn ensure_schema(client: &ClickHouseClient, db_name: &str) -> anyhow::Resu
         .await?;
 
     client
-        .query(
+        .query(&format!(
             "
-            CREATE TABLE IF NOT EXISTS decisions (
+            CREATE TABLE IF NOT EXISTS {}.decisions (
                 tx_id String,
                 decision String,
                 final_score Float64,
@@ -140,28 +144,30 @@ async fn ensure_schema(client: &ClickHouseClient, db_name: &str) -> anyhow::Resu
                 latency_ms UInt64,
                 reasons_json String,
                 label String,
-                event_time DateTime64(3),
-                inserted_at DateTime64(3)
+                event_time String,
+                inserted_at String
             ) ENGINE = MergeTree
             ORDER BY (event_time, tx_id)
             ",
-        )
+            db_name
+        ))
         .execute()
         .await?;
 
     client
-        .query(
+        .query(&format!(
             "
-            CREATE TABLE IF NOT EXISTS ring_signals (
+            CREATE TABLE IF NOT EXISTS {}.ring_signals (
                 ring_id String,
                 component_size UInt32,
                 avg_graph_score Float64,
                 shared_device_fanout UInt32,
-                updated_at DateTime64(3)
+                updated_at String
             ) ENGINE = MergeTree
             ORDER BY (updated_at, ring_id)
             ",
-        )
+            db_name
+        ))
         .execute()
         .await?;
 
@@ -241,8 +247,8 @@ async fn insert_decision(client: &ClickHouseClient, trace: DecisionTraceV1) -> a
         latency_ms: trace.latency_ms as u64,
         reasons_json: serde_json::to_string(&trace.reasons)?,
         label: trace.label.unwrap_or_else(|| "unknown".to_string()),
-        event_time: trace.event_time,
-        inserted_at: Utc::now(),
+        event_time: trace.event_time.to_rfc3339(),
+        inserted_at: Utc::now().to_rfc3339(),
     };
     let mut insert = client.insert("decisions")?;
     insert.write(&row).await?;
@@ -256,7 +262,7 @@ async fn insert_ring_signal(client: &ClickHouseClient, graph: GraphSignalV1) -> 
         component_size: graph.component_size,
         avg_graph_score: graph.graph_score,
         shared_device_fanout: graph.shared_device_fanout,
-        updated_at: Utc::now(),
+        updated_at: Utc::now().to_rfc3339(),
     };
     let mut insert = client.insert("ring_signals")?;
     insert.write(&row).await?;

@@ -7,7 +7,7 @@ create_topic() {
   local name="$1"
   local partitions="$2"
   local replication="$3"
-  /opt/bitnami/kafka/bin/kafka-topics.sh \
+  /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "${BOOTSTRAP}" \
     --create \
     --if-not-exists \

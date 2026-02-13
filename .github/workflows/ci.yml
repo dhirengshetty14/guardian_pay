@@ -1,0 +1,43 @@
+name: guardianpay-ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker compose
+        run: docker compose config > /dev/null
+
+  python-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python syntax check
+        run: |
+          python -m py_compile python/simulator/app.py
+          python -m py_compile python/feature-stream/main.py
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [dashboard, extension]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install and build
+        working-directory: ${{ matrix.project }}
+        run: |
+          npm install
+          npm run build
