@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+  import cytoscape, { type Core } from "cytoscape";
+
   type Reason = {
     code: string;
     source: string;
@@ -21,16 +24,30 @@
     label?: string;
   };
 
+  type RingGraphNode = {
+    id: string;
+    kind: string;
+    label: string;
+  };
+
+  type RingGraphEdge = {
+    id: string;
+    source: string;
+    target: string;
+    relation: string;
+  };
+
+  type RingGraphPayload = {
+    ring_id: string;
+    node_count: number;
+    edge_count: number;
+    nodes: RingGraphNode[];
+    edges: RingGraphEdge[];
+  };
+
   const gatewayUrl = import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:8080";
-  const wsUrl =
-    import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/v1/stream/alerts";
-  const scenarios = [
-    "baseline",
-    "card_testing",
-    "ring_expansion",
-    "account_takeover",
-    "bust_out",
-  ];
+  const wsUrl = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/v1/stream/alerts";
+  const scenarios = ["baseline", "card_testing", "ring_expansion", "account_takeover", "bust_out"];
 
   let selectedScenario = "ring_expansion";
   let count = 10000;
@@ -40,6 +57,11 @@
   let connectionStatus = "connecting";
   let ringId = "";
   let ringData: Record<string, unknown> | null = null;
+  let ringGraph: RingGraphPayload | null = null;
+  let ringStatus = "idle";
+
+  let ringCanvas: HTMLDivElement | null = null;
+  let cy: Core | null = null;
 
   $: total = alerts.length;
   $: declined = alerts.filter((a) => a.decision === "DECLINE").length;
@@ -49,6 +71,21 @@
       ? 0
       : alerts.filter((a) => a.decision !== "APPROVE" && a.label === "fraud").length /
         alerts.filter((a) => a.decision !== "APPROVE").length;
+  $: p95Latency = percentile(
+    alerts.map((a) => a.latency_ms),
+    95
+  );
+
+  $: if (ringGraph && ringCanvas) {
+    renderRingGraph(ringGraph);
+  }
+
+  function percentile(values: number[], p: number): number {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));
+    return sorted[idx];
+  }
 
   function connectSocket(): void {
     const ws = new WebSocket(wsUrl);
@@ -74,9 +111,17 @@
 
   connectSocket();
 
+  onDestroy(() => {
+    if (cy) {
+      cy.destroy();
+      cy = null;
+    }
+  });
+
   async function runScenario(): Promise<void> {
     runStatus = "running";
     ringData = null;
+    ringGraph = null;
     try {
       const response = await fetch(`${gatewayUrl}/v1/simulations/run`, {
         method: "POST",
@@ -96,17 +141,129 @@
     }
   }
 
+  function extractRingId(alert: DecisionAlert): string | null {
+    const graphReason = alert.reasons.find((r) => r.code === "GRAPH_RING_SCORE");
+    if (!graphReason || !graphReason.evidence_ref.startsWith("ring:")) {
+      return null;
+    }
+    return graphReason.evidence_ref.slice("ring:".length);
+  }
+
+  async function openRingFromAlert(alert: DecisionAlert): Promise<void> {
+    const extracted = extractRingId(alert);
+    if (!extracted) {
+      return;
+    }
+    ringId = extracted;
+    await fetchRing();
+  }
+
   async function fetchRing(): Promise<void> {
     if (!ringId.trim()) return;
+    ringStatus = "loading";
+    ringData = null;
+    ringGraph = null;
     try {
-      const response = await fetch(`${gatewayUrl}/v1/rings/${encodeURIComponent(ringId)}`);
-      if (!response.ok) {
-        throw new Error(await response.text());
+      const [summaryResponse, graphResponse] = await Promise.all([
+        fetch(`${gatewayUrl}/v1/rings/${encodeURIComponent(ringId)}`),
+        fetch(`${gatewayUrl}/v1/rings/${encodeURIComponent(ringId)}/graph`),
+      ]);
+
+      if (!summaryResponse.ok) {
+        throw new Error(await summaryResponse.text());
       }
-      ringData = await response.json();
+      if (!graphResponse.ok) {
+        throw new Error(await graphResponse.text());
+      }
+
+      ringData = await summaryResponse.json();
+      ringGraph = (await graphResponse.json()) as RingGraphPayload;
+      ringStatus = "loaded";
     } catch (err) {
+      ringStatus = `error: ${String(err)}`;
       ringData = { error: String(err) };
     }
+  }
+
+  function renderRingGraph(payload: RingGraphPayload): void {
+    if (!ringCanvas) return;
+    const elements = [
+      ...payload.nodes.map((node) => ({
+        data: {
+          id: node.id,
+          label: node.label,
+          kind: node.kind,
+        },
+      })),
+      ...payload.edges.map((edge) => ({
+        data: {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          relation: edge.relation,
+        },
+      })),
+    ];
+
+    if (!cy) {
+      cy = cytoscape({
+        container: ringCanvas,
+        elements,
+        style: [
+          {
+            selector: "node",
+            style: {
+              label: "data(label)",
+              color: "#f4f7ff",
+              "font-size": 9,
+              "text-outline-width": 2,
+              "text-outline-color": "#091325",
+            },
+          },
+          {
+            selector: 'node[kind = "account"]',
+            style: { "background-color": "#2f7ef6", width: 22, height: 22 },
+          },
+          {
+            selector: 'node[kind = "device"]',
+            style: { "background-color": "#19c3aa", width: 26, height: 26 },
+          },
+          {
+            selector: 'node[kind = "ip"]',
+            style: { "background-color": "#f3a527", width: 24, height: 24 },
+          },
+          {
+            selector: 'node[kind = "card"]',
+            style: { "background-color": "#d25bff", width: 20, height: 20 },
+          },
+          {
+            selector: 'node[kind = "merchant"]',
+            style: { "background-color": "#f25f5c", width: 20, height: 20 },
+          },
+          {
+            selector: "edge",
+            style: {
+              width: 1.5,
+              "line-color": "#4a638f",
+              "target-arrow-color": "#4a638f",
+              "target-arrow-shape": "triangle",
+              "curve-style": "bezier",
+              label: "data(relation)",
+              "font-size": 7,
+              color: "#9eb8e7",
+              "text-background-opacity": 1,
+              "text-background-color": "#07111f",
+              "text-background-padding": 2,
+            },
+          },
+        ],
+      });
+    } else {
+      cy.elements().remove();
+      cy.add(elements);
+    }
+
+    cy.layout({ name: "cose", animate: false, fit: true, padding: 24 }).run();
   }
 
   function format(value: number): string {
@@ -117,7 +274,7 @@
 <main>
   <section class="hero">
     <h1>GuardianPay X</h1>
-    <p>Real-time fraud risk mesh with graph ring detection and deterministic replay signals.</p>
+    <p>Real-time fraud risk mesh with stateful features, graph ring scoring, and replay trace hashes.</p>
     <span class="badge">WS: {connectionStatus}</span>
   </section>
 
@@ -162,14 +319,26 @@
       <h3>Precision (flagged)</h3>
       <p>{(precision * 100).toFixed(1)}%</p>
     </article>
+    <article>
+      <h3>p95 Latency</h3>
+      <p>{p95Latency}ms</p>
+    </article>
   </section>
 
   <section class="ring">
-    <h2>Ring Lookup</h2>
+    <h2>Ring Graph Explorer</h2>
     <div class="grid">
       <input placeholder="ring:dev_ring_001:192.168.0.2" bind:value={ringId} />
       <button on:click={fetchRing}>Fetch Ring</button>
     </div>
+    <p class="muted">Status: {ringStatus}</p>
+    {#if ringGraph}
+      <div class="ring-metrics">
+        <span>Nodes: {ringGraph.node_count}</span>
+        <span>Edges: {ringGraph.edge_count}</span>
+      </div>
+      <div class="ring-graph" bind:this={ringCanvas}></div>
+    {/if}
     {#if ringData}
       <pre>{JSON.stringify(ringData, null, 2)}</pre>
     {/if}
@@ -184,6 +353,7 @@
         <span>Score</span>
         <span>Latency</span>
         <span>Reasons</span>
+        <span>Actions</span>
       </div>
       {#each alerts as alert}
         <div class="row">
@@ -195,6 +365,9 @@
             {#each alert.reasons.slice(0, 3) as r}
               <small>{r.code} ({format(r.contribution)})</small>
             {/each}
+          </span>
+          <span>
+            <button class="mini" on:click={() => openRingFromAlert(alert)}>Open Ring</button>
           </span>
         </div>
       {/each}
@@ -210,7 +383,7 @@
     color: #edf2ff;
   }
   main {
-    max-width: 1200px;
+    max-width: 1240px;
     margin: 0 auto;
     padding: 24px;
   }
@@ -259,6 +432,10 @@
     border: none;
     font-weight: 700;
   }
+  .mini {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
   .metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -275,16 +452,30 @@
     font-size: 1.5rem;
     font-weight: 700;
   }
+  .ring-metrics {
+    margin: 10px 0;
+    display: flex;
+    gap: 12px;
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+  .ring-graph {
+    width: 100%;
+    height: 420px;
+    border-radius: 10px;
+    border: 1px solid #203252;
+    background: #050a14;
+  }
   .table {
     display: grid;
     gap: 6px;
-    max-height: 420px;
+    max-height: 440px;
     overflow: auto;
   }
   .head,
   .row {
     display: grid;
-    grid-template-columns: 100px 100px 90px 90px 1fr;
+    grid-template-columns: 100px 100px 90px 90px 1fr 100px;
     gap: 8px;
     align-items: center;
   }
@@ -331,8 +522,19 @@
     padding: 12px;
     border-radius: 10px;
     border: 1px solid #203252;
+    max-height: 220px;
   }
   .muted {
     opacity: 0.7;
+  }
+  @media (max-width: 900px) {
+    .head,
+    .row {
+      grid-template-columns: 80px 90px 70px 70px 1fr 86px;
+      font-size: 0.8rem;
+    }
+    .ring-graph {
+      height: 340px;
+    }
   }
 </style>
