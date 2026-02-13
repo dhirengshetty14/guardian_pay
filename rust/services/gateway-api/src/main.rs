@@ -33,6 +33,7 @@ struct AppState {
     alert_sender: broadcast::Sender<DecisionTraceV1>,
     simulator_url: String,
     analytics_url: String,
+    graph_api_url: String,
     client: reqwest::Client,
 }
 
@@ -95,6 +96,8 @@ async fn main() -> anyhow::Result<()> {
         env::var("SIMULATOR_URL").unwrap_or_else(|_| "http://simulator:8090".to_string());
     let analytics_url =
         env::var("ANALYTICS_URL").unwrap_or_else(|_| "http://analytics-writer:8083".to_string());
+    let graph_api_url =
+        env::var("GRAPH_API_URL").unwrap_or_else(|_| "http://graph-service:8084".to_string());
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &kafka_brokers)
@@ -124,6 +127,7 @@ async fn main() -> anyhow::Result<()> {
         alert_sender,
         simulator_url,
         analytics_url,
+        graph_api_url,
         client: reqwest::Client::new(),
     });
 
@@ -133,6 +137,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/simulations/run", post(run_simulation))
         .route("/v1/transactions/:tx_id/decision", get(get_decision))
         .route("/v1/rings/:ring_id", get(get_ring))
+        .route("/v1/rings/:ring_id/graph", get(get_ring_graph))
         .route("/v1/replay/run", post(run_replay))
         .route("/v1/stream/alerts", get(stream_alerts))
         .layer(CorsLayer::permissive())
@@ -268,6 +273,18 @@ async fn get_ring(
     Path(ring_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let url = format!("{}/internal/rings/{}", state.analytics_url, ring_id);
+    proxy_get_json(&state.client, &url).await
+}
+
+async fn get_ring_graph(
+    State(state): State<Arc<AppState>>,
+    Path(ring_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let url = format!(
+        "{}/internal/rings/{}/graph",
+        state.graph_api_url,
+        ring_id
+    );
     proxy_get_json(&state.client, &url).await
 }
 
