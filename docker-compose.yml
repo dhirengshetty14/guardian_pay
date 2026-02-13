@@ -22,7 +22,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
-    profiles: ["core", "full"]
+    profiles: ["core", "full", "tools"]
 
   kafka-init:
     image: apache/kafka:4.1.1
@@ -32,7 +32,7 @@ services:
     volumes:
       - ./infra/kafka/create-topics.sh:/scripts/create-topics.sh:ro
     command: ["/bin/bash", "/scripts/create-topics.sh"]
-    profiles: ["core", "full"]
+    profiles: ["core", "full", "tools"]
 
   redis:
     image: redis:8-alpine
@@ -257,6 +257,25 @@ services:
       TOPIC_TX_DECISION: tx.decision
       MODEL_VERSION: model-v1
       REPLAY_MAX_MESSAGES: 200000
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    profiles: ["tools"]
+
+  quality-evaluator:
+    build:
+      context: ./python/quality-evaluator
+    container_name: guardianpay-quality-evaluator
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      TOPIC_TX_DECISION: tx.decision
+      QUALITY_MAX_MESSAGES: 200000
+      QUALITY_REVIEW_IS_FRAUD: "true"
+      QUALITY_MIN_PRECISION: 0.70
+      QUALITY_MIN_RECALL: 0.75
+      QUALITY_OUTPUT_PATH: /out/quality-report.json
+    volumes:
+      - ./artifacts:/out
     depends_on:
       kafka-init:
         condition: service_completed_successfully
